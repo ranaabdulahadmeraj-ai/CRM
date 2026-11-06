@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  role         String   @default("PROPERTY_AGENT")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedLeads       Lead[]               @relation("AssignedAgentLeads")
+  assignedProperties  Property[]           @relation("AssignedAgentProperties")
+  customerAssignments Customer[]           @relation("AssignedCustomerAgent")
+  dealAssignments     Deal[]               @relation("AssignedDealAgent")
+  appointments        Appointment[]        @relation("AgentAppointments")
+  assignedReminders   Reminder[]           @relation("AssignedReminder")
+  createdReminders    Reminder[]           @relation("CreatedReminder")
+  interactions        Interaction[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  commissions         Commission[]         @relation("CommissionAgent")
+  commissionPayments  CommissionPayment[]  @relation("CommissionPaymentRecorder")
+  installmentPayments InstallmentPayment[] @relation("InstallmentPaymentRecorder")
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  developerName String
+  city          String
+  location      String
+  description   String
+  image         String?
+  status        String   @default("Active")
+  featured      Boolean  @default(false)
+  paymentPlans  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  properties Property[]
+  leads      Lead[]
+}
+
+model Property {
+  id              String   @id @default(cuid())
+  title           String
+  projectId       String?
+  project         Project? @relation(fields: [projectId], references: [id])
+  propertyType    String
+  size            String
+  location        String
+  price           Float
+  owner           String?
+  assignedAgentId String?
+  assignedAgent   User?    @relation("AssignedAgentProperties", fields: [assignedAgentId], references: [id])
+  availability    String   @default("Available")
+  image           String?
+  description     String?
+  documents       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  deals Deal[]
+}
+
+model Customer {
+  id                  String   @id @default(cuid())
+  fullName            String
+  phone               String
+  normalizedPhone     String?  @unique
+  normalizedEmail     String?  @unique
+  whatsapp            String?
+  email               String?
+  city                String?
+  budget              Float?
+  preferredLocations  String?
+  propertyPreferences String?
+  investmentObjective String?
+  notes               String?
+  assignedAgentId     String?
+  assignedAgent       User?    @relation("AssignedCustomerAgent", fields: [assignedAgentId], references: [id])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  leads        Lead[]
+  appointments Appointment[]
+  buyerDeals   Deal[]        @relation("BuyerDeal")
+  sellerDeals  Deal[]        @relation("SellerDeal")
+  reminders    Reminder[]
+  interactions Interaction[]
+}
+
+model Lead {
+  id                String   @id @default(cuid())
+  fullName          String
+  phone             String
+  normalizedPhone   String?  @unique
+  normalizedEmail    String?     @unique
+  whatsapp          String?
+  email             String?
+  selectedProjectId String?
+  selectedProject   Project? @relation(fields: [selectedProjectId], references: [id])
+  city              String?
+  budget            Float?
+  propertySize      String?
+  investmentGoal    String?
+  message           String?
+  source            String   @default("WEBSITE")
+  status            String   @default("NEW_INQUIRY")
+  priority          String   @default("Medium")
+  assignedAgentId   String?
+  assignedAgent     User?    @relation("AssignedAgentLeads", fields: [assignedAgentId], references: [id])
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  customerId   String?
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  appointments Appointment[]
+  reminders    Reminder[]
+  interactions Interaction[]
+}
+
+model Appointment {
+  id              String        @id @default(cuid())
+  title           String
+  type            String
+  appointmentDate DateTime
+  location        String?
+  status          String        @default("SCHEDULED")
+  notes           String?
+  customerId      String?
+  customer        Customer?     @relation(fields: [customerId], references: [id])
+  leadId          String?
+  lead            Lead?         @relation(fields: [leadId], references: [id])
+  agentId         String?
+  agent           User?         @relation("AgentAppointments", fields: [agentId], references: [id])
+  reminders       Reminder[]
+  interactions    Interaction[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Deal {
+  id                  String        @id @default(cuid())
+  dealId              String        @unique
+  propertyId          String?
+  property            Property?     @relation(fields: [propertyId], references: [id])
+  projectId           String?
+  buyerId             String?
+  buyer               Customer?     @relation("BuyerDeal", fields: [buyerId], references: [id])
+  sellerId            String?
+  seller              Customer?     @relation("SellerDeal", fields: [sellerId], references: [id])
+  agentId             String?
+  agent               User?         @relation("AssignedDealAgent", fields: [agentId], references: [id])
+  dealValue           Float
+  bookingAmount       Float?
+  advancePayment      Float?
+  remainingBalance    Float?
+  dealDate            DateTime
+  expectedClosingDate DateTime?
+  status              String        @default("NEGOTIATION")
+  commissionRate      Float         @default(0)
+  commissionAmount    Float?
+  installments        Installment[]
+  commissions     Commission[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+}
+
+model Commission {
+  id              String              @id @default(cuid())
+  dealId          String?
+  deal            Deal?               @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  agentId         String?
+  agent           User?               @relation("CommissionAgent", fields: [agentId], references: [id], onDelete: SetNull)
+  totalCommission Float
+  agencyShare     Float
+  agentShare      Float
+  agencyShareRate Float               @default(60)
+  agentShareRate  Float               @default(40)
+  status          String              @default("PENDING")
+  payments        CommissionPayment[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model CommissionPayment {
+  id           String     @id @default(cuid())
+  commissionId String
+  commission   Commission @relation(fields: [commissionId], references: [id], onDelete: Restrict)
+  agencyAmount Float      @default(0)
+  agentAmount  Float      @default(0)
+  reference    String?
+  notes        String?
+  recordedById String?
+  recordedBy   User?      @relation("CommissionPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+}
+
+model Installment {
+  id         String               @id @default(cuid())
+  dealId     String
+  deal       Deal                 @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  sequence   Int
+  title      String
+  dueDate    DateTime
+  amount     Float
+  amountPaid Float                @default(0)
+  status     String               @default("PENDING")
+  paidAt     DateTime?
+  payments   InstallmentPayment[]
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@unique([dealId, sequence])
+  @@index([status, dueDate])
+}
+
+model InstallmentPayment {
+  id            String      @id @default(cuid())
+  installmentId String
+  installment   Installment @relation(fields: [installmentId], references: [id], onDelete: Restrict)
+  amount        Float
+  reference     String?
+  notes         String?
+  recordedById  String?
+  recordedBy    User?       @relation("InstallmentPaymentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+}
+
+model Reminder {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  dueAt         DateTime
+  status        String       @default("PENDING")
+  notifiedAt    DateTime?
+  assignedToId  String
+  assignedTo    User         @relation("AssignedReminder", fields: [assignedToId], references: [id], onDelete: Restrict)
+  createdById   String?
+  createdBy     User?        @relation("CreatedReminder", fields: [createdById], references: [id], onDelete: SetNull)
+  customerId    String?
+  customer      Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  leadId        String?
+  lead          Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  interactionId String?      @unique
+  interaction   Interaction? @relation("ReminderOrigin", fields: [interactionId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([assignedToId, status, dueAt])
+  @@index([status, dueAt, notifiedAt])
+}
+
+model Notification {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reminderId     String?   @unique
+  title          String
+  message        String
+  readAt         DateTime?
+  emailStatus    String    @default("PENDING")
+  emailAttempts  Int       @default(0)
+  lastEmailError String?
+  emailedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+  @@index([emailStatus, emailAttempts])
+}
+
+model Interaction {
+  id             String       @id @default(cuid())
+  type           String
+  summary        String
+  details        String?
+  occurredAt     DateTime     @default(now())
+  agentId        String
+  agent          User         @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  customerId     String?
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  leadId         String?
+  lead           Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  appointmentId  String?
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  originReminder Reminder?    @relation("ReminderOrigin")
+  createdAt      DateTime     @default(now())
+
+  @@index([agentId, type, occurredAt])
+  @@index([customerId, occurredAt])
+  @@index([leadId, occurredAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model FinancialEntry {
+  id          String   @id @default(cuid())
+  type        String
+  category    String
+  amount      Float
+  description String
+  reference   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
