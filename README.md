@@ -10,6 +10,8 @@ Next.js application for Dream Land Properties. The public homepage reads feature
 4. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env` (minimum 12 characters), then run `npm run db:seed` to create the first administrator. The bootstrap script is non-destructive and does not add example business records.
 5. Start the app with `npm run dev`.
 
+Production builds run `prisma generate` before `next build` so the Prisma Client is available in cached deployment environments such as Vercel.
+
 ## Reminder scheduler
 
 Due reminders are persisted in the CRM and become in-app notifications when the scheduler runs. Configure `CRON_SECRET` as a random secret of at least 32 characters, then configure an external scheduler (for example, your hosting provider's cron service) to send an authenticated `POST` to `/api/cron/reminders` at least once per minute:
